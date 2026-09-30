@@ -14,13 +14,8 @@ app.use(cors());
 app.use(express.json());
 
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected");
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
-    process.exit(1);
-  });
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.log("MongoDB connection error:", err));
 
 // ---------------- HEALTH ----------------
 app.get("/api/health", (req, res) => {
@@ -156,6 +151,74 @@ app.delete("/api/opensource/saved/:id", async (req, res) => {
     res.json({ message: "Removed" });
   } catch (err) {
     res.status(500).json({ error: "Failed to remove" });
+  }
+});
+
+// ---------------- TASKS / TO-DO ----------------
+
+app.get("/api/tasks", async (req, res) => {
+  try {
+    const { category } = req.query;
+
+    const filter = category ? { category } : {};
+
+    const tasks = await Task.find(filter).sort({ createdAt: -1 });
+
+    res.json(tasks);
+  } catch (err) {
+    console.error("Failed to load tasks:", err);
+    res.status(500).json({ error: "Failed to load tasks" });
+  }
+});
+
+app.post("/api/tasks", async (req, res) => {
+  try {
+    const { title, category, status } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: "Task title is required" });
+    }
+
+    const task = await Task.create({
+      title,
+      category: category || "personal",
+      status: status || "todo"
+    });
+
+    res.status(201).json(task);
+  } catch (err) {
+    console.error("Failed to create task:", err);
+    res.status(500).json({ error: "Failed to create task" });
+  }
+});
+
+app.put("/api/tasks/:id", async (req, res) => {
+  try {
+    const updated = await Task.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    console.error("Failed to update task:", err);
+    res.status(500).json({ error: "Failed to update task" });
+  }
+});
+
+app.delete("/api/tasks/:id", async (req, res) => {
+  try {
+    await Task.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "Task deleted" });
+  } catch (err) {
+    console.error("Failed to delete task:", err);
+    res.status(500).json({ error: "Failed to delete task" });
   }
 });
 
